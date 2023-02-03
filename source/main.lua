@@ -15,12 +15,13 @@ pd.graphics.setBackgroundColor(gfx.kColorBlack)
 
 local function initialize()
 
-
+	game = Game()
 end
 
 initialize()
 
 function playdate.update()
+	game:update()
 	gfx.sprite.update()
 	pd.timer.updateTimers()
 
