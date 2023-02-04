@@ -131,7 +131,8 @@ function ScreenAnimatedSprite:init(imageName)
     imagetable = gfx.imagetable.new(imagePath)
     ScreenAnimatedSprite.super.init(self, imagetable)
     ScreenAnimatedSprite.screen = nil
-
+    self:setZIndex(0)
+    self.mapPos = { 0, 0 }
 end
 
 function ScreenAnimatedSprite:update()
@@ -139,6 +140,11 @@ function ScreenAnimatedSprite:update()
     if (self.screen == nill or self.screen.active) then
         ScreenAnimatedSprite.super.update(self)
     end
+end
+
+function ScreenAnimatedSprite:moveTo(x, y)
+    self.mapPos = { x, y }
+    ScreenAnimatedSprite.super.moveTo(self, mapDecal[1] + (x - 1) * tileSize[1], mapDecal[2] + (y - 1) * tileSize[2])
 end
 
 -----------SPECIFICS------------------------
@@ -155,9 +161,28 @@ function Hero:init(x, y)
     self:moveTo(x, y)
 end
 
-function Hero:moveTo(x, y)
-    self.mapPos = { x, y }
-    Hero.super.moveTo(self, mapDecal[1] + (x - 1) * tileSize[1], mapDecal[2] + (y - 1) * tileSize[2])
+class("Root").extends(ScreenAnimatedSprite)
+
+function Root:init(x, y, state, index)
+    Root.super.init(self, "root", x, y)
+    self:addState("left", 1, 7, { tickStep = 5, nextAnimation = "left-fixe" })
+    self:addState("left-fixe", 7, 7, { tickStep = 5 })
+
+    self:addState("up", 8, 14, { tickStep = 5, nextAnimation = "up-fixe" })
+    self:addState("up-fixe", 14, 14, { tickStep = 5 })
+
+    self:addState("right", 15, 21, { tickStep = 5, nextAnimation = "right-fixe" })
+    self:addState("right-fixe", 21, 21, { tickStep = 5 })
+
+    self:addState("down", 22, 28, { tickStep = 5, nextAnimation = "down-fixe" })
+    self:addState("down-fixe", 28, 28, { tickStep = 5 })
+
+    self:changeState(state, true)
+    self:setCenter(0, 0)
+    self:moveTo(x, y)
+    self:setZIndex(-5)
+
+    self.index = index
 end
 
 class("BattleScreen").extends(Screen)
@@ -187,6 +212,8 @@ function BattleScreen:init(game)
 
     self.battleTiles = {}
     self.battleMap = {}
+
+    self.roots = {}
 
 
     self:CreateMap()
@@ -219,15 +246,16 @@ function BattleScreen:InitializeField()
 
     for x = 1, mapSize[1], 1 do
         for y = 1, mapSize[2], 1 do
+
             tileCoord = tilesDic[self.battleMap[x][y]]
             if tileCoord ~= nil then
+
                 tx = tileCoord[1]
                 ty = tileCoord[2]
                 tile = Tile(tx, ty, x, y)
                 self:add(tile)
                 table.insert(self.battleTiles, tile)
             end
-
         end
     end
 
@@ -248,6 +276,21 @@ function BattleScreen:moveHero(dx, dy)
     end
 
     self.hero:moveTo(nx, ny)
+
+    if self.battleMap[hx][hy] ~= "I" and self.battleMap[hx][hy] ~= "O" then
+
+        state = nil
+        if dy == 1 then state = "up"
+        elseif dy == -1 then state = "down"
+        elseif dx == 1 then state = "left"
+        elseif dx == -1 then state = "right"
+        end
+
+        index = #self.roots + 1
+        root = Root(hx, hy, state, index)
+        table.insert(self.roots, index, root)
+        self:add(root)
+    end
 
 end
 
