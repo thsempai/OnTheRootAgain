@@ -11,6 +11,7 @@ local mapDecal = { 24, 24 }
 local tileSize = { 32, 32 }
 
 local tileset = gfx.imagetable.new("sprites/tileset")
+local heartset = gfx.imagetable.new("sprites/heart")
 
 class("Game").extends()
 
@@ -148,6 +149,25 @@ function ScreenAnimatedSprite:moveTo(x, y)
 end
 
 -----------SPECIFICS------------------------
+class("Heart").extends(ScreenSprite)
+
+function Heart:init(x, y)
+    image = heartset:getImage(2, 1)
+    Heart.super.init(self, image)
+    self:moveTo(x, y)
+    self:setCenter(0.5, 1)
+    self:setZIndex(150)
+end
+
+function Heart:fill(ok)
+    if ok == true then
+        image = heartset:getImage(2, 1)
+    else
+        image = heartset:getImage(1, 1)
+    end
+    self:setImage(image)
+
+end
 
 class("Hero").extends(ScreenAnimatedSprite)
 
@@ -209,6 +229,19 @@ function BattleScreen:init(game)
     self.hero = Hero(0, 0)
     self:add(self.hero)
 
+    self.heroLife = 10
+
+    self.hearts = {}
+
+    for index = 1, 10, 1 do
+        y = 215 - (index - 1) * 12
+        heart = Heart(19, y)
+        if index > self.heroLife then
+            heart:fill(false)
+        end
+
+        self:add(heart)
+    end
 
     self.battleTiles = {}
     self.battleMap = {}
@@ -276,8 +309,9 @@ function BattleScreen:moveHero(dx, dy)
     end
 
     self.hero:moveTo(nx, ny)
-
-    if self.battleMap[hx][hy] ~= "I" and self.battleMap[hx][hy] ~= "O" then
+    if self.battleMap[nx][ny] == "-" then
+        self:rootCollision(nx, ny)
+    elseif self.battleMap[hx][hy] ~= "I" and self.battleMap[hx][hy] ~= "O" then
 
         state = nil
         if dy == 1 then state = "up"
@@ -290,8 +324,30 @@ function BattleScreen:moveHero(dx, dy)
         root = Root(hx, hy, state, index)
         table.insert(self.roots, index, root)
         self:add(root)
+        self.battleMap[hx][hy] = "-"
     end
 
+end
+
+function BattleScreen:rootCollision(x, y)
+
+    found = false
+
+    newRoots = {}
+    for index, root in ipairs(self.roots) do
+        if found == false and root.mapPos[1] == x and root.mapPos[2] == y then
+            found = true
+        end
+
+        if found == true then
+            self:remove(root)
+            self.battleMap[root.mapPos[1]][root.mapPos[2]] = "."
+        else
+            table.insert(newRoots, root)
+        end
+
+    end
+    self.roots = newRoots
 end
 
 function BattleScreen:update()
@@ -305,6 +361,7 @@ function BattleScreen:update()
         self:moveHero(-1, 0)
     elseif pd.buttonJustPressed(pd.kButtonRight) then
         self:moveHero(1, 0)
-
     end
+
+
 end
