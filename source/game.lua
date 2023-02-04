@@ -19,9 +19,10 @@ function Game:init()
 
 
     battleScreen = BattleScreen(self)
+    gameOver = GameOver(self)
 
 
-    self.screens = { battle = battleScreen }
+    self.screens = { battle = battleScreen, gameOver = gameOver }
 
     self:changeCurrentScreen("battle")
 
@@ -236,6 +237,7 @@ function BattleScreen:init(game)
     for index = 1, 10, 1 do
         y = 215 - (index - 1) * 12
         heart = Heart(19, y)
+        table.insert(self.hearts, index, heart)
         if index > self.heroLife then
             heart:fill(false)
         end
@@ -252,6 +254,18 @@ function BattleScreen:init(game)
     self:CreateMap()
     self:InitializeField()
 
+end
+
+function BattleScreen:ChangeHeroLife(life)
+    self.heroLife = life
+
+    if self.heroLife <= 0 then
+        self.game:changeCurrentScreen("gameOver")
+        return
+    end
+    for index = 1, #self.hearts, 1 do
+        self.hearts[index]:fill(index < self.heroLife)
+    end
 end
 
 function BattleScreen:CreateMap()
@@ -332,6 +346,7 @@ end
 function BattleScreen:rootCollision(x, y)
 
     found = false
+    lifeLost = #self.roots
 
     newRoots = {}
     for index, root in ipairs(self.roots) do
@@ -347,7 +362,13 @@ function BattleScreen:rootCollision(x, y)
         end
 
     end
+
     self.roots = newRoots
+    lifeLost -= #self.roots
+    lifeLost = math.ceil(lifeLost / 2)
+
+    self:ChangeHeroLife(self.heroLife - lifeLost)
+
 end
 
 function BattleScreen:update()
@@ -364,4 +385,14 @@ function BattleScreen:update()
     end
 
 
+end
+
+class("GameOver").extends(Screen)
+
+function GameOver:init(game)
+    GameOver.super.init(self, game)
+
+    bg = ScreenSprite("gameOver")
+    bg:setCenter(0, 0)
+    self:add(bg)
 end
