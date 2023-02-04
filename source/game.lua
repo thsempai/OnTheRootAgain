@@ -12,11 +12,11 @@ local tileSize = { 32, 32 }
 
 local tileset = gfx.imagetable.new("sprites/tileset")
 local heartset = gfx.imagetable.new("sprites/heart")
+local dropset = gfx.imagetable.new("sprites/drop")
 
 class("Game").extends()
 
 function Game:init()
-
 
     battleScreen = BattleScreen(self)
     gameOver = GameOver(self)
@@ -29,6 +29,10 @@ function Game:init()
 end
 
 function Game:changeCurrentScreen(newScreen)
+    if self.current == "battle" and newScreen ~= "battle" then
+        self.screens["battle"] = BattleScreen(self)
+    end
+
     self.current = newScreen
     gfx.sprite:removeAll()
 
@@ -150,24 +154,36 @@ function ScreenAnimatedSprite:moveTo(x, y)
 end
 
 -----------SPECIFICS------------------------
-class("Heart").extends(ScreenSprite)
+class("GUIValue").extends(ScreenSprite)
 
-function Heart:init(x, y)
-    image = heartset:getImage(2, 1)
-    Heart.super.init(self, image)
+function GUIValue:init(x, y, imagetable)
+    self.imagetable = imagetable
+    image = imagetable:getImage(2, 1)
+    GUIValue.super.init(self, image)
     self:moveTo(x, y)
     self:setCenter(0.5, 1)
     self:setZIndex(150)
 end
 
-function Heart:fill(ok)
+function GUIValue:fill(ok)
     if ok == true then
-        image = heartset:getImage(2, 1)
+        image = self.imagetable:getImage(2, 1)
     else
-        image = heartset:getImage(1, 1)
+        image = self.imagetable:getImage(1, 1)
     end
     self:setImage(image)
 
+end
+
+class("Mana").extends(ScreenAnimatedSprite)
+
+function Mana:init(x, y)
+    Mana.super.init(self, "mana")
+    self:addState("drop", 1, 11, { tickStep = 5 }).asDefault()
+    self:changeState("drop", true)
+    self.mapPos = { x, y }
+    self:setCenter(0, 0)
+    self:moveTo(x, y)
 end
 
 class("Hero").extends(ScreenAnimatedSprite)
@@ -231,24 +247,36 @@ function BattleScreen:init(game)
     self:add(self.hero)
 
     self.heroLife = 10
+    self.heroMana = 0
 
     self.hearts = {}
+    self.drops = {}
 
     for index = 1, 10, 1 do
         y = 215 - (index - 1) * 12
-        heart = Heart(19, y)
+        heart = GUIValue(19, y, heartset)
         table.insert(self.hearts, index, heart)
         if index > self.heroLife then
             heart:fill(false)
         end
-
         self:add(heart)
+    end
+
+    for index = 1, 10, 1 do
+        y = 215 - (index - 1) * 12
+        drop = GUIValue(383, y, dropset)
+        table.insert(self.drops, index, drop)
+        if index > self.heroMana then
+            drop:fill(false)
+        end
+        self:add(drop)
     end
 
     self.battleTiles = {}
     self.battleMap = {}
 
     self.roots = {}
+    self.manas = {}
 
 
     self:CreateMap()
@@ -264,7 +292,16 @@ function BattleScreen:ChangeHeroLife(life)
         return
     end
     for index = 1, #self.hearts, 1 do
-        self.hearts[index]:fill(index < self.heroLife)
+        self.hearts[index]:fill(index <= self.heroLife)
+    end
+end
+
+function BattleScreen:ChangeHeroMana(mana)
+    self.heroMana = mana
+    self.heroMana = math.min(self.heroMana, 10)
+
+    for index = 1, #self.drops, 1 do
+        self.drops[index]:fill(index <= self.heroMana)
     end
 end
 
@@ -285,6 +322,9 @@ function BattleScreen:CreateMap()
     y = math.random(1, mapSize[2])
     self.battleMap[mapSize[1]][y] = "O"
 
+    -- mana
+    self.battleMap[5][3] = "M"
+
 end
 
 function BattleScreen:InitializeField()
@@ -294,14 +334,21 @@ function BattleScreen:InitializeField()
     for x = 1, mapSize[1], 1 do
         for y = 1, mapSize[2], 1 do
 
-            tileCoord = tilesDic[self.battleMap[x][y]]
-            if tileCoord ~= nil then
+            if self.battleMap[x][y] == "M" then
+                mana = Mana(x, y)
+                self:add(mana)
+                table.insert(self.manas, mana)
+                table.insert(self.battleTiles, mana)
+            else
+                tileCoord = tilesDic[self.battleMap[x][y]]
+                if tileCoord ~= nil then
 
-                tx = tileCoord[1]
-                ty = tileCoord[2]
-                tile = Tile(tx, ty, x, y)
-                self:add(tile)
-                table.insert(self.battleTiles, tile)
+                    tx = tileCoord[1]
+                    ty = tileCoord[2]
+                    tile = Tile(tx, ty, x, y)
+                    self:add(tile)
+                    table.insert(self.battleTiles, tile)
+                end
             end
         end
     end
@@ -323,6 +370,10 @@ function BattleScreen:moveHero(dx, dy)
     end
 
     self.hero:moveTo(nx, ny)
+    if self.battleMap[nx][ny] == "M" then
+        self:manaCollection(nx, ny)
+    end
+
     if self.battleMap[nx][ny] == "-" then
         self:rootCollision(nx, ny)
     elseif self.battleMap[hx][hy] ~= "I" and self.battleMap[hx][hy] ~= "O" then
@@ -341,6 +392,18 @@ function BattleScreen:moveHero(dx, dy)
         self.battleMap[hx][hy] = "-"
     end
 
+end
+
+function BattleScreen:manaCollection(x, y)
+    for index, mana in ipairs(self.manas) do
+        if mana.mapPos[1] == x and mana.mapPos[2] == y then
+            table.remove(self.manas, index)
+            self:remove(mana)
+            break
+        end
+    end
+    self:ChangeHeroMana(self.heroMana + 1)
+    self.battleMap[x][y] = '.'
 end
 
 function BattleScreen:rootCollision(x, y)
@@ -395,4 +458,11 @@ function GameOver:init(game)
     bg = ScreenSprite("gameOver")
     bg:setCenter(0, 0)
     self:add(bg)
+end
+
+function GameOver:update()
+    GameOver.super.update(self)
+    if pd.buttonJustPressed(pd.kButtonA) then
+        self.game:changeCurrentScreen("battle")
+    end
 end
