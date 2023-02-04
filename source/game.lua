@@ -1,6 +1,8 @@
 import "CoreLibs/sprites"
 import "CoreLibs/string"
 
+import "AnimatedSprite"
+
 local gfx <const> = playdate.graphics
 local pd <const> = playdate
 
@@ -66,7 +68,7 @@ function Screen:setActive(ok)
 end
 
 function Screen:add(sprite)
-    if (not sprite:isa(ScreenSprite)) then
+    if (not sprite:isa(ScreenSprite) and not sprite:isa(ScreenAnimatedSprite)) then
         error("To add a sprite to the screen it must be a ScreenSprite")
     end
     table.insert(self.sprites, sprite)
@@ -117,13 +119,46 @@ function Tile:init(tileX, tileY, x, y)
     self.mapX = x
     self.mapY = y
     self:setCenter(0, 0)
-    self:moveTo(mapDecal[1] + tileSize[1] * x, mapDecal[2] + tileSize[2] * y)
-    print(x, y)
-    self:setZIndex(10)
+    self:moveTo(mapDecal[1] + tileSize[1] * (x - 1), mapDecal[2] + tileSize[2] * (y - 1))
+    self:setZIndex(-10)
 
 end
 
+class("ScreenAnimatedSprite").extends(AnimatedSprite)
+
+function ScreenAnimatedSprite:init(imageName)
+    imagePath = "sprites/" .. imageName
+    imagetable = gfx.imagetable.new(imagePath)
+    ScreenAnimatedSprite.super.init(self, imagetable)
+    ScreenAnimatedSprite.screen = nil
+
+end
+
+function ScreenAnimatedSprite:update()
+
+    if (self.screen == nill or self.screen.active) then
+        ScreenAnimatedSprite.super.update(self)
+    end
+end
+
 -----------SPECIFICS------------------------
+
+class("Hero").extends(ScreenAnimatedSprite)
+
+function Hero:init(x, y)
+
+    Hero.super.init(self, "hero")
+    self:addState("pose", 11, 12, { tickStep = 5 }).asDefault()
+    self:changeState("pose", true)
+    self.mapPos = { x, y }
+    self:setCenter(0, 0)
+    self:moveTo(x, y)
+end
+
+function Hero:moveTo(x, y)
+    self.mapPos = { x, y }
+    Hero.super.moveTo(self, mapDecal[1] + (x - 1) * tileSize[1], mapDecal[2] + (y - 1) * tileSize[2])
+end
 
 class("BattleScreen").extends(Screen)
 
@@ -145,21 +180,88 @@ function BattleScreen:init(game)
     fg:setZIndex(100)
     self:add(fg)
 
+    -- Hero
+    self.hero = Hero(0, 0)
+    self:add(self.hero)
+
+
     self.battleTiles = {}
+    self.battleMap = {}
+
+
+    self:CreateMap()
     self:InitializeField()
+
+end
+
+function BattleScreen:CreateMap()
+    for x = 1, mapSize[1], 1 do
+        table.insert(self.battleMap, x, {})
+        for y = 1, mapSize[2], 1 do
+            table.insert(self.battleMap[x], y, ".")
+        end
+    end
+
+    -- in
+    y = math.random(1, mapSize[2])
+    self.battleMap[1][y] = "I"
+    self.hero:moveTo(1, y)
+
+    -- out
+    y = math.random(1, mapSize[2])
+    self.battleMap[mapSize[1]][y] = "O"
 
 end
 
 function BattleScreen:InitializeField()
 
+    tilesDic = { X = { 1, 1 }, I = { 2, 1 }, O = { 3, 1 } }
+
     for x = 1, mapSize[1], 1 do
         for y = 1, mapSize[2], 1 do
-            if math.random(10) == 1 then
-                tile = Tile(1, 1, x, y)
+            tileCoord = tilesDic[self.battleMap[x][y]]
+            if tileCoord ~= nil then
+                tx = tileCoord[1]
+                ty = tileCoord[2]
+                tile = Tile(tx, ty, x, y)
                 self:add(tile)
                 table.insert(self.battleTiles, tile)
             end
+
         end
     end
 
+end
+
+function BattleScreen:moveHero(dx, dy)
+    hx = self.hero.mapPos[1]
+    hy = self.hero.mapPos[2]
+
+    nx = hx + dx
+    ny = hy + dy
+
+    if nx < 1 or nx > mapSize[1] then
+        return
+    end
+    if ny < 1 or ny > mapSize[2] then
+        return
+    end
+
+    self.hero:moveTo(nx, ny)
+
+end
+
+function BattleScreen:update()
+    BattleScreen.super.update(self)
+
+    if pd.buttonJustPressed(pd.kButtonUp) then
+        self:moveHero(0, -1)
+    elseif pd.buttonJustPressed(pd.kButtonDown) then
+        self:moveHero(0, 1)
+    elseif pd.buttonJustPressed(pd.kButtonLeft) then
+        self:moveHero(-1, 0)
+    elseif pd.buttonJustPressed(pd.kButtonRight) then
+        self:moveHero(1, 0)
+
+    end
 end
