@@ -21,14 +21,16 @@ function Game:init()
     battleScreen = BattleScreen(self)
     gameOver = GameOver(self)
 
+    flower = FlowerScreen(self)
 
-    self.screens = { battle = battleScreen, gameOver = gameOver }
+    self.screens = { battle = battleScreen, gameOver = gameOver, flower = flower }
 
     self:changeCurrentScreen("battle")
 
 end
 
 function Game:changeCurrentScreen(newScreen)
+    print("current screen: " .. newScreen)
     if self.current == "battle" and newScreen ~= "battle" then
         self.screens["battle"] = BattleScreen(self)
     end
@@ -62,6 +64,17 @@ function Screen:init(game, color)
     self.game = game
     self.sprites = {}
     self:setActive(false)
+    self.circle = nil
+    self.circleRadius = 400
+    self.circleSpeed = -5
+    image = gfx.image.new(400, 240, gfx.kColorClear)
+    self.circleSprite = ScreenSprite(image)
+    self.circleSprite:setCenter(0, 0)
+    self.circleSprite:moveTo(0, 0)
+    self.circleSprite:setZIndex(500)
+    self:add(self.circleSprite)
+
+    self.circleFunction = nil
 end
 
 function Screen:setActive(ok)
@@ -87,8 +100,39 @@ function Screen:remove(sprite)
     sprite.screen = nil
 end
 
-function Screen:update()
+function Screen:circleOut(x, y, fct)
+    self.circle = { x, y }
+    self.circleSpeed = -10
+    self.circleRadius = 400
+    self.circleFunction = fct
+end
 
+function Screen:circleIn(x, y, fct)
+    self.circle = { x, y }
+    self.circleSpeed = 10
+    self.circleRadius = 0
+    self.circleFunction = fct
+end
+
+function Screen:update()
+    if self.circle ~= nil then
+        image = gfx.image.new(400, 240, gfx.kColorClear)
+        gfx.pushContext(image)
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, 0, 400, 240)
+        gfx.setColor(gfx.kColorClear)
+        gfx.fillCircleAtPoint(x, y, self.circleRadius)
+        gfx.popContext()
+        self.circleSprite:setImage(image)
+        if self.circleRadius <= 0 and self.circleSpeed < 0 or
+            self.circleSprite.x + self.circleRadius >= 510 and self.circleSpeed > 0 then
+            self.circle = nil
+            if self.circleFunction ~= nil then
+                self.circleFunction()
+            end
+        end
+        self.circleRadius += self.circleSpeed
+    end
 end
 
 class("ScreenSprite").extends(gfx.sprite)
@@ -314,22 +358,74 @@ function BattleScreen:CreateMap()
     end
 
     -- in
-    y = math.random(1, mapSize[2])
-    self.battleMap[1][y] = "I"
-    self.hero:moveTo(1, y)
+    inY = math.random(1, mapSize[2])
+    inX = 1
+    self.battleMap[inX][inY] = "I"
+    self.hero:moveTo(inX, inY)
+    cx = (self.hero.mapPos[1] - 1) * tileSize[1] + tileSize[1] / 2 + mapDecal[1]
+    cy = (self.hero.mapPos[2] - 1) * tileSize[2] + tileSize[2] / 2 + mapDecal[2]
+    self:circleIn(cx, cy)
 
     -- out
-    y = math.random(1, mapSize[2])
-    self.battleMap[mapSize[1]][y] = "O"
+    outY = math.random(1, mapSize[2])
+    outX = mapSize[1]
+    self.battleMap[outX][outY] = "O"
+
+    y = inY
+    x = inX
+
+    doY = true
+
+    while x ~= outX or y ~= outY do
+
+        if y ~= outY and x ~= outX then
+            doY = not doY
+        end
+
+        if (doY == true and y > outY) then
+            y -= 1
+        elseif doY == true and y < outY then
+            y += 1
+        elseif doY == true and y == outY and (outX - x) > 1 then
+            y += math.random(-1, 1)
+        elseif x > outX then
+            x -= 1
+        elseif x < outX then
+            x += 1
+        end
+
+        if self.battleMap[x][y] ~= "O" then
+            self.battleMap[x][y] = "P"
+        end
+    end
+
 
     -- mana
-    self.battleMap[5][3] = "M"
+    manaNumber = 4
+
+    while manaNumber > 0 do
+        x = math.random(1, mapSize[1])
+        y = math.random(1, mapSize[2])
+        if self.battleMap[x][y] == "." then
+            manaNumber -= 1
+            self.battleMap[x][y] = 'M'
+        end
+    end
+
+    for x = 1, mapSize[1], 1 do
+        for y = 1, mapSize[2], 1 do
+            if self.battleMap[x][y] == "." and math.random(1, 2) == 1 then
+                self.battleMap[x][y] = "X"
+            end
+        end
+    end
+
 
 end
 
 function BattleScreen:InitializeField()
 
-    tilesDic = { X = { 1, 1 }, I = { 2, 1 }, O = { 3, 1 } }
+    tilesDic = { X = { 1, 1 }, I = { 2, 1 }, O = { 3, 1 }, P = { 4, 1 } }
 
     for x = 1, mapSize[1], 1 do
         for y = 1, mapSize[2], 1 do
@@ -355,6 +451,14 @@ function BattleScreen:InitializeField()
 
 end
 
+function BattleScreen:leave()
+    x = (self.hero.mapPos[1] - 1) * tileSize[1] + tileSize[1] / 2 + mapDecal[1]
+    y = (self.hero.mapPos[2] - 1) * tileSize[2] + tileSize[2] / 2 + mapDecal[2]
+    self:circleOut(x, y, function()
+        self.game:changeCurrentScreen("flower")
+    end)
+end
+
 function BattleScreen:moveHero(dx, dy)
     hx = self.hero.mapPos[1]
     hy = self.hero.mapPos[2]
@@ -369,8 +473,14 @@ function BattleScreen:moveHero(dx, dy)
         return
     end
 
+    if self.battleMap[nx][ny] == "X" then
+        return
+    end
+
     self.hero:moveTo(nx, ny)
-    if self.battleMap[nx][ny] == "M" then
+    if self.battleMap[nx][ny] == "O" then
+        self:leave()
+    elseif self.battleMap[nx][ny] == "M" then
         self:manaCollection(nx, ny)
     end
 
@@ -435,18 +545,21 @@ function BattleScreen:rootCollision(x, y)
 end
 
 function BattleScreen:update()
-    BattleScreen.super.update(self)
 
-    if pd.buttonJustPressed(pd.kButtonUp) then
-        self:moveHero(0, -1)
-    elseif pd.buttonJustPressed(pd.kButtonDown) then
-        self:moveHero(0, 1)
-    elseif pd.buttonJustPressed(pd.kButtonLeft) then
-        self:moveHero(-1, 0)
-    elseif pd.buttonJustPressed(pd.kButtonRight) then
-        self:moveHero(1, 0)
+    if self.circle == nil then
+
+        if pd.buttonJustPressed(pd.kButtonUp) then
+            self:moveHero(0, -1)
+        elseif pd.buttonJustPressed(pd.kButtonDown) then
+            self:moveHero(0, 1)
+        elseif pd.buttonJustPressed(pd.kButtonLeft) then
+            self:moveHero(-1, 0)
+        elseif pd.buttonJustPressed(pd.kButtonRight) then
+            self:moveHero(1, 0)
+        end
     end
 
+    BattleScreen.super.update(self)
 
 end
 
@@ -465,4 +578,10 @@ function GameOver:update()
     if pd.buttonJustPressed(pd.kButtonA) then
         self.game:changeCurrentScreen("battle")
     end
+end
+
+class("FlowerScreen").extends(Screen)
+
+function FlowerScreen:init(game)
+    FlowerScreen.super.init(self, game)
 end
