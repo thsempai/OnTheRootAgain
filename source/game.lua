@@ -49,6 +49,7 @@ function Game:changeCurrentScreen(newScreen)
         self.life = 10
         self.screens["flower"] = FlowerScreen(self)
         self.screens["battle"] = BattleScreen(self)
+        self.screens[newScreen]:circleIn(200, 120)
     end
 
     if self.current ~= "victory" and newScreen == "victory" then
@@ -78,7 +79,10 @@ end
 
 class("Screen").extends()
 
-function Screen:init(game, color)
+function Screen:init(game, color, colorIn)
+    if colorIn == nil then
+        colorIn = gfx.kColorBlack
+    end
     if color == nil then
         self.bgColor = gfx.kColorClear
     else
@@ -91,6 +95,10 @@ function Screen:init(game, color)
     self.circleRadius = 400
     self.circleSpeed = -5
     image = gfx.image.new(400, 240, gfx.kColorClear)
+    gfx.pushContext(image)
+    gfx.setColor(colorIn)
+    gfx.fillRect(0, 0, 400, 240)
+    gfx.popContext()
     self.circleSprite = ScreenSprite(image)
     self.circleSprite:setCenter(0, 0)
     self.circleSprite:moveTo(0, 0)
@@ -366,7 +374,11 @@ function BattleScreen:ChangeHeroLife(life)
     self.game.life = life
 
     if self.game.life <= 0 then
-        self.game:changeCurrentScreen("gameOver")
+        x = (self.hero.mapPos[1] - 1) * tileSize[1] + tileSize[1] / 2 + mapDecal[1]
+        y = (self.hero.mapPos[2] - 1) * tileSize[2] + tileSize[2] / 2 + mapDecal[2]
+        self:circleOut(x, y, function()
+            self.game:changeCurrentScreen("gameOver")
+        end)
         return
     end
     for index = 1, #self.hearts, 1 do
@@ -723,7 +735,6 @@ function RootsMap:init()
 end
 
 function RootsMap:update()
-    print(self.dry)
 
     RootsMap.super.update(self)
 
