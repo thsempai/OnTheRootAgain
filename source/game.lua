@@ -18,20 +18,43 @@ class("Game").extends()
 
 function Game:init()
 
-    battleScreen = BattleScreen(self)
-    gameOver = GameOver(self)
+    self.life = 10
+    self.mana = 0
 
-    flower = FlowerScreen(self)
+    self.screens = {}
+    self.screens.gameOver = GameOver(self)
 
-    self.screens = { battle = battleScreen, gameOver = gameOver, flower = flower }
+    self.screens.victory = Victory(self)
+    self.screens.flower = FlowerScreen(self)
+    self.screens.battle = BattleScreen(self)
 
-    self:changeCurrentScreen("battle")
+    self:changeCurrentScreen("flower")
+
 
 end
 
 function Game:changeCurrentScreen(newScreen)
     print("current screen: " .. newScreen)
+
     if self.current == "battle" and newScreen ~= "battle" then
+        self.screens["battle"] = BattleScreen(self)
+    end
+
+    if self.current ~= "flower" and newScreen == "flower" then
+        self.screens["flower"]:circleIn(200, 38)
+    end
+
+    if self.current ~= "gameOver" and newScreen == "gameOver" then
+        self.mana = 0
+        self.life = 10
+        self.screens["flower"] = FlowerScreen(self)
+        self.screens["battle"] = BattleScreen(self)
+    end
+
+    if self.current ~= "victory" and newScreen == "victory" then
+        self.mana = 0
+        self.life = 10
+        self.screens["flower"] = FlowerScreen(self)
         self.screens["battle"] = BattleScreen(self)
     end
 
@@ -75,6 +98,7 @@ function Screen:init(game, color)
     self:add(self.circleSprite)
 
     self.circleFunction = nil
+    self.circleBorder = false
 end
 
 function Screen:setActive(ok)
@@ -100,14 +124,21 @@ function Screen:remove(sprite)
     sprite.screen = nil
 end
 
-function Screen:circleOut(x, y, fct)
+function Screen:circleOut(x, y, fct, border)
+    if border == nil then
+        border = false
+    end
     self.circle = { x, y }
     self.circleSpeed = -10
     self.circleRadius = 400
     self.circleFunction = fct
 end
 
-function Screen:circleIn(x, y, fct)
+function Screen:circleIn(x, y, fct, border)
+    if border == nil then
+        border = false
+    end
+    self.circleBorder = border
     self.circle = { x, y }
     self.circleSpeed = 10
     self.circleRadius = 0
@@ -121,7 +152,13 @@ function Screen:update()
         gfx.setColor(gfx.kColorBlack)
         gfx.fillRect(0, 0, 400, 240)
         gfx.setColor(gfx.kColorClear)
+        x = self.circle[1]
+        y = self.circle[2]
         gfx.fillCircleAtPoint(x, y, self.circleRadius)
+        if self.circleBorder == true then
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawCircleAtPoint(x, y, self.circleRadius + 1)
+        end
         gfx.popContext()
         self.circleSprite:setImage(image)
         if self.circleRadius <= 0 and self.circleSpeed < 0 or
@@ -290,9 +327,6 @@ function BattleScreen:init(game)
     self.hero = Hero(0, 0)
     self:add(self.hero)
 
-    self.heroLife = 10
-    self.heroMana = 0
-
     self.hearts = {}
     self.drops = {}
 
@@ -300,7 +334,7 @@ function BattleScreen:init(game)
         y = 215 - (index - 1) * 12
         heart = GUIValue(19, y, heartset)
         table.insert(self.hearts, index, heart)
-        if index > self.heroLife then
+        if index > self.game.life then
             heart:fill(false)
         end
         self:add(heart)
@@ -310,7 +344,7 @@ function BattleScreen:init(game)
         y = 215 - (index - 1) * 12
         drop = GUIValue(383, y, dropset)
         table.insert(self.drops, index, drop)
-        if index > self.heroMana then
+        if index > self.game.mana then
             drop:fill(false)
         end
         self:add(drop)
@@ -329,23 +363,23 @@ function BattleScreen:init(game)
 end
 
 function BattleScreen:ChangeHeroLife(life)
-    self.heroLife = life
+    self.game.life = life
 
-    if self.heroLife <= 0 then
+    if self.game.life <= 0 then
         self.game:changeCurrentScreen("gameOver")
         return
     end
     for index = 1, #self.hearts, 1 do
-        self.hearts[index]:fill(index <= self.heroLife)
+        self.hearts[index]:fill(index <= self.game.life)
     end
 end
 
 function BattleScreen:ChangeHeroMana(mana)
-    self.heroMana = mana
-    self.heroMana = math.min(self.heroMana, 10)
+    self.game.mana = mana
+    self.game.mana = math.min(self.game.mana, 10)
 
     for index = 1, #self.drops, 1 do
-        self.drops[index]:fill(index <= self.heroMana)
+        self.drops[index]:fill(index <= self.game.mana)
     end
 end
 
@@ -395,7 +429,11 @@ function BattleScreen:CreateMap()
         end
 
         if self.battleMap[x][y] ~= "O" then
-            self.battleMap[x][y] = "P"
+            if math.random(self.game.screens["flower"].map.power, 10) == 10 then
+                self.battleMap[x][y] = "X"
+            else
+                self.battleMap[x][y] = "P"
+            end
         end
     end
 
@@ -425,7 +463,7 @@ end
 
 function BattleScreen:InitializeField()
 
-    tilesDic = { X = { 1, 1 }, I = { 2, 1 }, O = { 3, 1 }, P = { 4, 1 } }
+    tilesDic = { X = { 1, 1 }, I = { 2, 1 }, O = { 3, 1 } }
 
     for x = 1, mapSize[1], 1 do
         for y = 1, mapSize[2], 1 do
@@ -454,6 +492,7 @@ end
 function BattleScreen:leave()
     x = (self.hero.mapPos[1] - 1) * tileSize[1] + tileSize[1] / 2 + mapDecal[1]
     y = (self.hero.mapPos[2] - 1) * tileSize[2] + tileSize[2] / 2 + mapDecal[2]
+    self.game.screens["flower"]:UpdateValues()
     self:circleOut(x, y, function()
         self.game:changeCurrentScreen("flower")
     end)
@@ -473,9 +512,6 @@ function BattleScreen:moveHero(dx, dy)
         return
     end
 
-    if self.battleMap[nx][ny] == "X" then
-        return
-    end
 
     self.hero:moveTo(nx, ny)
     if self.battleMap[nx][ny] == "O" then
@@ -484,6 +520,9 @@ function BattleScreen:moveHero(dx, dy)
         self:manaCollection(nx, ny)
     end
 
+    if self.battleMap[nx][ny] == "X" then
+        self:ChangeHeroLife(self.game.life - 2)
+    end
     if self.battleMap[nx][ny] == "-" then
         self:rootCollision(nx, ny)
     elseif self.battleMap[hx][hy] ~= "I" and self.battleMap[hx][hy] ~= "O" then
@@ -512,7 +551,7 @@ function BattleScreen:manaCollection(x, y)
             break
         end
     end
-    self:ChangeHeroMana(self.heroMana + 1)
+    self:ChangeHeroMana(self.game.mana + 1)
     self.battleMap[x][y] = '.'
 end
 
@@ -538,9 +577,12 @@ function BattleScreen:rootCollision(x, y)
 
     self.roots = newRoots
     lifeLost -= #self.roots
-    lifeLost = math.ceil(lifeLost / 2)
+    lifeLost = math.floor(lifeLost / 2)
+    if lifeLost < 1 then
+        lifeLost = 1
+    end
 
-    self:ChangeHeroLife(self.heroLife - lifeLost)
+    self:ChangeHeroLife(self.game.life - lifeLost)
 
 end
 
@@ -576,12 +618,267 @@ end
 function GameOver:update()
     GameOver.super.update(self)
     if pd.buttonJustPressed(pd.kButtonA) then
-        self.game:changeCurrentScreen("battle")
+        self.game:changeCurrentScreen("flower")
+    end
+end
+
+class("Victory").extends(Screen)
+
+function Victory:init(game)
+    Victory.super.init(self, game)
+
+    bg = ScreenSprite("victory")
+    bg:setCenter(0, 0)
+    self:add(bg)
+
+    self:circleIn(200, 120)
+end
+
+function Victory:update()
+    Victory.super.update(self)
+    if pd.buttonJustPressed(pd.kButtonA) then
+        self.game:changeCurrentScreen("flower")
     end
 end
 
 class("FlowerScreen").extends(Screen)
 
 function FlowerScreen:init(game)
-    FlowerScreen.super.init(self, game)
+    FlowerScreen.super.init(self, game, gfx.kColorWhite)
+
+
+    bg = ScreenSprite("bgflower")
+    bg:setCenter(0, 0)
+    bg:moveTo(0, 0)
+    bg:setZIndex(-100)
+    self:add(bg)
+
+    self.map = RootsMap()
+    self:add(self.map)
+
+    self.flower = FlowerSprite(200, 59)
+    self:add(self.flower)
+
+    self.hearts = {}
+    self.drops = {}
+
+    for index = 1, 10, 1 do
+        x = 8 + (index - 1) * 10
+        heart = GUIValue(x, 13, heartset)
+        table.insert(self.hearts, index, heart)
+        if index > self.game.life then
+            heart:fill(false)
+        end
+        self:add(heart)
+    end
+
+    for index = 1, 10, 1 do
+        x = 303 + (index - 1) * 10
+        drop = GUIValue(x, 13, dropset)
+        table.insert(self.drops, index, drop)
+        if index > self.game.mana then
+            drop:fill(false)
+        end
+        self:add(drop)
+    end
+
+end
+
+function FlowerScreen:UpdateValues()
+    if self.game.mana >= 10 then
+        self.game.mana = 0
+        self.flower:UpdatePower(self.map.power)
+        self.map.dry = 150
+
+    end
+    for index = 1, #self.hearts, 1 do
+        self.hearts[index]:fill(index <= self.game.life)
+    end
+
+    for index = 1, #self.drops, 1 do
+        self.drops[index]:fill(index <= self.game.mana)
+    end
+end
+
+class("RootsMap").extends(ScreenSprite)
+
+function RootsMap:init()
+
+    image = gfx.image.new(400, 240, gfx.kColorClear)
+
+
+    RootsMap.super.init(self, image)
+    self:setCenter(0, 0)
+    self:moveTo(0, 0)
+    self:setZIndex(0)
+
+    self.roots = {}
+    self.save = nil
+
+    self.origin = RootPixel(self, 0, 0)
+    self.current = self.origin
+    self.power = math.floor(self.current.y / 30)
+    self.step = 0
+    self.dry = 150
+end
+
+function RootsMap:update()
+    print(self.dry)
+
+    RootsMap.super.update(self)
+
+    image = gfx.image.new(400, 240, gfx.kColorClear)
+    gfx.pushContext(image)
+    gfx.setColor(gfx.kColorWhite)
+    for index, root in ipairs(self.roots) do
+        gfx.drawPixel(root.x + 200, root.y + 60)
+        if root.battle == true then
+            gfx.drawCircleAtPoint(root.x + 200, root.y + 60, 2)
+        end
+    end
+    gfx.fillRect(137, 3, self.dry, 11)
+    gfx.popContext()
+
+    self:setImage(image)
+
+    if self.screen.circle ~= nil then
+        return
+    end
+    if pd.buttonIsPressed(pd.kButtonDown) then
+        if self.current.y < 180 then
+            self.current:next()
+            self.step += 1
+            self.dry -= 1
+            if self.dry <= 0 then
+                self.screen:circleOut(200, 59 - 22, function()
+                    self.screen.game:changeCurrentScreen("gameOver")
+                end)
+            else
+                if self.step >= 50 or self.step >= 5 and math.random(self.step, 50) == 50 then
+                    self.step = 0
+                    self:encounter()
+                end
+            end
+        end
+    end
+
+    if pd.buttonJustPressed(pd.kButtonA) then
+        min = 0
+        max = math.floor(#self.roots / 2)
+        root = self.roots[math.random(min, max)]
+        root:fork()
+        self.screen.game.life = 10
+        self.screen:UpdateValues()
+    end
+
+    self.power = math.floor(self.current.y / 30)
+
+    if self.screen.flower.level >= 8 then
+        self.screen:circleOut(200, 59 - 22, function()
+            self.screen.game:changeCurrentScreen("victory")
+        end)
+    end
+
+end
+
+function RootsMap:encounter()
+
+    self.current.battle = true
+    fct = function()
+        self.screen.game:changeCurrentScreen("battle")
+        self.screen.game.screens["battle"]:ChangeHeroLife(self.screen.game.life)
+    end
+    self.screen:circleOut(self.current.x + 200, self.current.y + 60, fct, true)
+end
+
+class("RootPixel").extends()
+
+function RootPixel:init(screen, x, y, level, parent, direction)
+    self.screen = screen
+    self.screen.current = self
+    self.battle = false
+    table.insert(screen.roots, self)
+
+    if direction == nill then
+        direction = 0
+    end
+    self.direction = direction
+
+    self.x = x
+    self.y = y
+    if level == nil then
+        self.level = 0
+    else
+        self.level = level
+    end
+
+    self.node = nil
+
+    self.parent = parent
+    if parent ~= nil then
+        parent.child = this
+    end
+
+
+end
+
+function RootPixel:next()
+    x = self.x
+    y = self.y
+
+    if self.node ~= nil and math.abs(self.node.x - self.x) < 10 * self.level then
+        x += self.direction
+        y += math.random(0, 1)
+    else
+        y += 1
+        x += math.random(-1, 1)
+    end
+
+    newPixel = RootPixel(self.screen, x, y, self.level, self, direction)
+    newPixel.node = self.node
+end
+
+function RootPixel:fork()
+    direction = self.direction * -1
+    if direction == 0 then
+        direction = 1
+        if math.random(0, 1) == 0 then
+            direction = -1
+        end
+    end
+
+    x = self.x
+    y = self.y
+
+    y += 1
+    x += direction
+
+    newPixel = RootPixel(self.screen, x, y, self.level + 1, nil, direction)
+    newPixel.node = self
+
+end
+
+class("FlowerSprite").extends(ScreenSprite)
+
+function FlowerSprite:init(x, y)
+
+    self.level = 1
+    self.power = 0
+    self.imagetable = gfx.imagetable.new("sprites/flower")
+    image = self.imagetable:getImage(self.level, 1)
+    FlowerSprite.super.init(self, image)
+    self:setCenter(0.5, 1)
+    self:moveTo(x, y)
+end
+
+function FlowerSprite:UpdatePower(value)
+
+    self.power += value
+    if self.power >= math.min(self.level, 5) then
+        self.power = 0
+        self.level += 1
+        image = self.imagetable:getImage(self.level, 1)
+        self:setImage(image)
+
+    end
 end
