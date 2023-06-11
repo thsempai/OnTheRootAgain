@@ -774,8 +774,8 @@ function RootsMap:update()
     end
 
     if pd.buttonJustPressed(pd.kButtonA) then
-        min = 0
-        max = math.floor(#self.roots / 2)
+        min = 1
+        max = math.max(1, math.floor(#self.roots / 2))
         root = self.roots[math.random(min, max)]
         root:fork()
         self.screen.game.life = 10
