@@ -684,8 +684,8 @@ function FlowerScreen:init(game)
         self:add(heart)
     end
 
-    for index = 1, 10, 1 do
-        x = 303 + (index - 1) * 10
+    for index = 1, 15, 1 do
+        x = 250 + (index - 1) * 10
         drop = GUIValue(x, 13, dropset)
         table.insert(self.drops, index, drop)
         if index > self.game.mana then
@@ -747,7 +747,7 @@ function RootsMap:update()
             gfx.drawCircleAtPoint(root.x + 200, root.y + 60, 2)
         end
     end
-    gfx.fillRect(137, 3, self.dry, 11)
+    gfx.fillRect(132, 3, self.dry/1.5, 11)
     gfx.popContext()
 
     self:setImage(image)
