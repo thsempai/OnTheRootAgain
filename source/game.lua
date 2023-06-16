@@ -348,7 +348,7 @@ function BattleScreen:init(game)
         self:add(heart)
     end
 
-    for index = 1, 10, 1 do
+    for index = 1, 15, 1 do
         y = 215 - (index - 1) * 12
         drop = GUIValue(383, y, dropset)
         table.insert(self.drops, index, drop)
@@ -388,7 +388,7 @@ end
 
 function BattleScreen:ChangeHeroMana(mana)
     self.game.mana = mana
-    self.game.mana = math.min(self.game.mana, 10)
+    self.game.mana = math.min(self.game.mana, 15)
 
     for index = 1, #self.drops, 1 do
         self.drops[index]:fill(index <= self.game.mana)
@@ -685,7 +685,7 @@ function FlowerScreen:init(game)
     end
 
     for index = 1, 15, 1 do
-        x = 250 + (index - 1) * 10
+        x = 252 + (index - 1) * 10
         drop = GUIValue(x, 13, dropset)
         table.insert(self.drops, index, drop)
         if index > self.game.mana then
@@ -697,12 +697,12 @@ function FlowerScreen:init(game)
 end
 
 function FlowerScreen:UpdateValues()
-    if self.game.mana >= 10 then
-        self.game.mana = 0
-        self.flower:UpdatePower(self.map.power)
-        self.map.dry = 150
+    -- if self.game.mana >= 10 then
+    --     self.game.mana = 0
+    --     self.flower:UpdatePower(self.map.power)
+    --     self.map.dry = 150
 
-    end
+    -- end
     for index = 1, #self.hearts, 1 do
         self.hearts[index]:fill(index <= self.game.life)
     end
@@ -780,6 +780,15 @@ function RootsMap:update()
         root:fork()
         self.screen.game.life = 10
         self.screen:UpdateValues()
+    end
+
+    if pd.buttonIsPressed(pd.kButtonB) then
+        if self.screen.game.mana >= 10 then
+            self.screen.game.mana -= 10
+            self.screen.flower:UpdatePower(self.screen.map.power)
+            self.screen.map.dry = 150
+            self.screen:UpdateValues()
+        end
     end
 
     self.power = math.floor(self.current.y / 30)
