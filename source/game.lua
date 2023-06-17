@@ -2,6 +2,7 @@ import "CoreLibs/sprites"
 import "CoreLibs/string"
 
 import "AnimatedSprite"
+import "sound"
 
 local gfx <const> = playdate.graphics
 local pd <const> = playdate
@@ -13,6 +14,8 @@ local tileSize = { 32, 32 }
 local tileset = gfx.imagetable.new("sprites/tileset")
 local heartset = gfx.imagetable.new("sprites/heart")
 local dropset = gfx.imagetable.new("sprites/drop")
+
+local soundBox = SoundBox()
 
 class("Game").extends()
 
@@ -534,6 +537,7 @@ function BattleScreen:moveHero(dx, dy)
 
     if self.battleMap[nx][ny] == "X" then
         self:ChangeHeroLife(self.game.life - 2)
+        soundBox:hurt()
     end
     if self.battleMap[nx][ny] == "-" then
         self:rootCollision(nx, ny)
