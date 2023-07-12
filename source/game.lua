@@ -30,8 +30,9 @@ function Game:init()
     self.screens.victory = Victory(self)
     self.screens.flower = FlowerScreen(self)
     self.screens.battle = BattleScreen(self)
+    self.screens.title = TitleScreen(self)
 
-    self:changeCurrentScreen("flower")
+    self:changeCurrentScreen("title")
 
 
 end
@@ -45,6 +46,10 @@ function Game:changeCurrentScreen(newScreen)
 
     if self.current ~= "flower" and newScreen == "flower" then
         self.screens["flower"]:circleIn(200, 38)
+    end
+
+    if self.current ~= "title" and newScreen == "title" then
+        self.screens["title"]:circleIn(200, 38)
     end
 
     if self.current ~= "gameOver" and newScreen == "gameOver" then
@@ -905,4 +910,15 @@ function FlowerSprite:UpdatePower(value)
         self:setImage(image)
 
     end
+end
+
+class("TitleScreen").extends(Screen)
+
+function TitleScreen:init(game)
+    TitleScreen.super.init(self, game, gfx.kColorWhite)
+    bg = ScreenSprite("title-screen")
+    bg:setCenter(0, 0)
+    bg:moveTo(0, 0)
+    bg:setZIndex(-100)
+    self:add(bg)
 end
