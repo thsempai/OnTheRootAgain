@@ -922,3 +922,11 @@ function TitleScreen:init(game)
     bg:setZIndex(-100)
     self:add(bg)
 end
+
+function TitleScreen:update()
+    TitleScreen.super.update(self)
+    if pd.buttonJustPressed(pd.kButtonA) then
+        self.game:changeCurrentScreen("flower")
+    end
+    
+end
