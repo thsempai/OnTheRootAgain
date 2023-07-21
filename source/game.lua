@@ -931,8 +931,22 @@ function TitleScreen:init(game)
     hero:changeState("pose", true)
     hero:setCenter(0, 0)
     hero:moveAtScreenPosition(325, 1)
-    print(hero)
     self:add(hero)
+
+    text = gfx.image.new(400, 240, gfx.kColorClear)
+    gfx.pushContext(text)
+    gfx.setImageDrawMode( playdate.graphics.kDrawModeInverted )
+    gfx.drawTextInRect("Press A to play.",250,175, 200, 200)
+    gfx.popContext()
+
+    self.textInSprite = ScreenSprite(text)
+    self.textInSprite:setCenter(0, 0)
+    self.textInSprite:moveTo(0, 0)
+    self.textInSprite:setZIndex(500)
+
+    self:add(self.textInSprite)
+
+    
 end
 
 function TitleScreen:update()
@@ -940,5 +954,4 @@ function TitleScreen:update()
     if pd.buttonJustPressed(pd.kButtonA) then
         self.game:changeCurrentScreen("flower")
     end
-    
 end
