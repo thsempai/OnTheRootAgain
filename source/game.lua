@@ -250,6 +250,10 @@ function ScreenAnimatedSprite:moveTo(x, y)
     ScreenAnimatedSprite.super.moveTo(self, mapDecal[1] + (x - 1) * tileSize[1], mapDecal[2] + (y - 1) * tileSize[2])
 end
 
+function ScreenAnimatedSprite:moveAtScreenPosition(x, y)
+    ScreenAnimatedSprite.super.moveTo(self, x, y)
+end
+
 -----------SPECIFICS------------------------
 class("GUIValue").extends(ScreenSprite)
 
@@ -921,6 +925,14 @@ function TitleScreen:init(game)
     bg:moveTo(0, 0)
     bg:setZIndex(-100)
     self:add(bg)
+
+    hero = ScreenAnimatedSprite("heroTitle")
+    hero:addState("pose", 1, 24, { tickStep = 5 }).asDefault()
+    hero:changeState("pose", true)
+    hero:setCenter(0, 0)
+    hero:moveAtScreenPosition(325, 1)
+    print(hero)
+    self:add(hero)
 end
 
 function TitleScreen:update()
