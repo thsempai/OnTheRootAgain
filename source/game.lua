@@ -30,8 +30,9 @@ function Game:init()
     self.screens.victory = Victory(self)
     self.screens.flower = FlowerScreen(self)
     self.screens.battle = BattleScreen(self)
+    self.screens.title = TitleScreen(self)
 
-    self:changeCurrentScreen("flower")
+    self:changeCurrentScreen("title")
 
 
 end
@@ -45,6 +46,10 @@ function Game:changeCurrentScreen(newScreen)
 
     if self.current ~= "flower" and newScreen == "flower" then
         self.screens["flower"]:circleIn(200, 38)
+    end
+
+    if self.current ~= "title" and newScreen == "title" then
+        self.screens["title"]:circleIn(200, 38)
     end
 
     if self.current ~= "gameOver" and newScreen == "gameOver" then
@@ -243,6 +248,10 @@ end
 function ScreenAnimatedSprite:moveTo(x, y)
     self.mapPos = { x, y }
     ScreenAnimatedSprite.super.moveTo(self, mapDecal[1] + (x - 1) * tileSize[1], mapDecal[2] + (y - 1) * tileSize[2])
+end
+
+function ScreenAnimatedSprite:moveAtScreenPosition(x, y)
+    ScreenAnimatedSprite.super.moveTo(self, x, y)
 end
 
 -----------SPECIFICS------------------------
@@ -904,5 +913,45 @@ function FlowerSprite:UpdatePower(value)
         image = self.imagetable:getImage(self.level, 1)
         self:setImage(image)
 
+    end
+end
+
+class("TitleScreen").extends(Screen)
+
+function TitleScreen:init(game)
+    TitleScreen.super.init(self, game, gfx.kColorWhite)
+    bg = ScreenSprite("title-screen")
+    bg:setCenter(0, 0)
+    bg:moveTo(0, 0)
+    bg:setZIndex(-100)
+    self:add(bg)
+
+    hero = ScreenAnimatedSprite("heroTitle")
+    hero:addState("pose", 1, 24, { tickStep = 5 }).asDefault()
+    hero:changeState("pose", true)
+    hero:setCenter(0, 0)
+    hero:moveAtScreenPosition(325, 1)
+    self:add(hero)
+
+    text = gfx.image.new(400, 240, gfx.kColorClear)
+    gfx.pushContext(text)
+    gfx.setImageDrawMode( playdate.graphics.kDrawModeInverted )
+    gfx.drawTextInRect("Press A to play.",250,175, 200, 200)
+    gfx.popContext()
+
+    self.textInSprite = ScreenSprite(text)
+    self.textInSprite:setCenter(0, 0)
+    self.textInSprite:moveTo(0, 0)
+    self.textInSprite:setZIndex(500)
+
+    self:add(self.textInSprite)
+
+    
+end
+
+function TitleScreen:update()
+    TitleScreen.super.update(self)
+    if pd.buttonJustPressed(pd.kButtonA) then
+        self.game:changeCurrentScreen("flower")
     end
 end

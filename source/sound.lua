@@ -15,7 +15,6 @@ function SoundBox:hurt()
         index = math.random(1, #self.hurtSounds)
     end
     self.hurtSounds[index]:play()
-    print("Here")
 end
 
 function convert(soundTable)
